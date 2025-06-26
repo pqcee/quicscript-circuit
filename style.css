@@ -1,0 +1,33 @@
+* {
+  font-family: ui-sans-serif, system-ui, sans-serif, "Apple Color Emoji",
+    "Segoe UI Emoji", "Segoe UI Symbol", "Noto Color Emoji";
+}
+
+/* Chrome, Safari, Edge, Opera */
+input::-webkit-outer-spin-button,
+input::-webkit-inner-spin-button {
+  -webkit-appearance: none;
+  margin: 0;
+}
+
+/* Firefox */
+input[type="number"] {
+  -moz-appearance: textfield;
+}
+
+/* Fullscreen CSS */
+::backdrop {
+  background-color: white;
+}
+
+@media all and (display-mode: fullscreen) {
+  #root {
+    padding-top: 50px;
+  }
+}
+
+.katex-html {
+  line-height: 1.2;
+  display: flex;
+  flex-wrap: wrap;
+}

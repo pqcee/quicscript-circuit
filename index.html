@@ -1,0 +1,71 @@
+<!DOCTYPE html>
+<html lang="en" style="height: auto">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>pQCee Quiscript Builder</title>
+    <link rel="stylesheet" href="style.css" />
+    <link rel="shortcut icon" href="#" />
+    <style>
+      div.gate {
+        /* Change Gate background color here: Default (#f3f4f6) */
+        background-color: #ededed;
+      }
+    </style>
+    <script>
+      /** Update Gates present in the palette: Default ["H", "X", "Y", "Z", "C", "N", "P", "T", "I", "s", "U", "d", "m"] */
+      /** Do check the documentation for allowed gates */
+      const gates = [
+        "H",
+        "X",
+        "Y",
+        "Z",
+        "C",
+        "N",
+        "P",
+        "T",
+        "I",
+        "s",
+        "U",
+        "d",
+        "x",
+        "y",
+        "z",
+        "m",
+      ];
+
+      /* Allow config of the Quicscript Builder
+       * Remove the comment to enable the config
+       */
+      const defaultConfig = {
+        // defaultQubits: 9, // Default: null
+        // defaultColumns: 20, // Default: null
+        // defaultQuic: "HI,CN", // Default: null
+        // qibo: true, // Default: false
+        // defaultResultDelimiter: "binary", // Default: binary (decimal, invbinary, binary)
+        // displayInput: false, // Default: true
+      };
+
+      /** Allow script to inject Quicscript Circuit String via callback_render(quicscript: string) method */
+      let ReactOnLoad;
+      let callback_render = (f) => {
+        callback_render = f;
+        typeof ReactOnLoad === "function" && ReactOnLoad();
+      };
+
+      /** Callback Triggers when reset button is pressed */
+      let callback_reset = () => {};
+    </script>
+  </head>
+  <body>
+    <div id="root" style="height: 100%"></div>
+    <script type="module" src="/src/main.jsx"></script>
+    <script>
+      ReactOnLoad = () => {
+        // Example Preload Circuit with H,CN
+        // Uncomment the line below to preload a circuit
+        // callback_render("H,CN");
+      };
+    </script>
+  </body>
+</html>

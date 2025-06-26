@@ -1,0 +1,14 @@
+{
+  "editor.formatOnSave": true,
+  "files.autoSave": "afterDelay",
+  "git.enableSmartCommit": true,
+  "git.autofetch": true,
+  "[javascriptreact]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "[jsonc]": {
+    "editor.defaultFormatter": "esbenp.prettier-vscode"
+  },
+  "liveServer.settings.root": "/dist",
+  "editor.tabSize": 2
+}
