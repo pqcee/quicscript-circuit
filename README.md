@@ -12,8 +12,7 @@
 <div align="center">
 <br />
 
-[![License: MIT](https://img.shields.io/badge/License-MIT-yellow.svg)](https://opensource.org/licenses/MIT)
-[![License](https://img.shields.io/badge/License-BSD_3--Clause-blue.svg)](https://opensource.org/licenses/BSD-3-Clause)
+[![License: CC](https://img.shields.io/badge/License-CC-yellow.svg)](./LICENSE)
 
 [![React](https://img.shields.io/badge/React-%2320232a.svg?logo=react&logoColor=%2361DAFB)](#)
 [![made with hearth by dec0dOS](https://img.shields.io/badge/made%20with%20%E2%99%A5%20by-pqcee-979a82.svg?style=flat-square)](https://www.pqcee.com/)
