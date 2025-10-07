@@ -1,14 +1,13 @@
-import { COPY, MOVE } from "../components/Selector.jsx";
+import { COPY, MOVE } from "../components/builder/Selector.jsx";
 import GateModel from "../models/GateModel.js";
-import { quicDelimiterRemoval } from "./Helper.js";
+import {
+  parseSegmentIntoGates,
+  quicDelimiterRemoval,
+  rGates,
+} from "./Helper.js";
 import { Quic } from "./Quic.js";
 import { Selector } from "./Selector.js";
-
-/** Default Setting for Builder if quic is null */
-const defaultConfig = {
-  qubits: 9,
-  columns: 20,
-};
+import { updateGateSlots } from "../store/circuitSlice.js";
 
 // Special Methods
 export const ADDCOLUMNRIGHTAT = "AddColumnRightAt";
@@ -23,21 +22,30 @@ export class Gates {
   gateSlots = [];
   observers = [];
   draggingGate = new GateModel(null, null, null);
-  qubits = defaultConfig.qubits;
-  columns = defaultConfig.columns;
+  qubits = 1;
+  columns = 1;
   uHolder = {};
+  rHolder = {};
+  selector = null; // Initailize in constructor
+  dispatch = null; // Redux dispatch function
+  defaultConfig = null;
 
-  constructor(
-    qubits = defaultConfig.qubits,
-    columns = defaultConfig.columns,
-    quic = ""
-  ) {
+  constructor(qubits, columns, quic = "", dynamicConfig = null, dispatch = null) {
+    // Store redux dispatch
+    this.dispatch = dispatch;
+
     // Initial Class
     this.selector = new Selector();
 
-    // console.log(qubits, columns, quic); // Nan Nan null
-    if (quic != null) {
-      const quicObj = new Quic(quic).validate();
+    // Use passed config or fallback to imported default
+    this.defaultConfig = dynamicConfig?.defaultCircuit;
+
+    if (quic != null && quic !== "") {
+      const quicObj = new Quic(
+        quic,
+        Object.values(dynamicConfig?.availableGates || {}).flat()
+      ).validate();
+
       if (quicObj) {
         // Case 1 & 2: Quic is valid
         this.qubits = quicObj.qubits;
@@ -47,10 +55,6 @@ export class Gates {
         if (!!columns && columns > quicObj.columns) this.columns = columns;
       } else {
         //TODO: Let user know quic is invalid
-        console.error("Config Error: Invalid quic: " + quic);
-        console.error(
-          `Switch to default config (qubits: ${defaultConfig.qubits}, columns: ${defaultConfig.columns})`
-        );
         quic = "";
       }
     } else {
@@ -59,8 +63,8 @@ export class Gates {
          *  Case 3: Use Default
          *  Variable: quic null, qubits NaN, columns NaN
          */
-        this.qubits = defaultConfig.qubits;
-        this.columns = defaultConfig.columns;
+        this.qubits = this.defaultConfig.qubits || 1;
+        this.columns = this.defaultConfig.columns || 1;
       } else {
         /**
          *  Case 4: Use Fixed qubits/columns
@@ -86,6 +90,35 @@ export class Gates {
     this.updateWithQuicscript(quic);
   }
 
+  // Dispatch to Redux instead of notifying observers
+  emitChange() {
+    if (this.dispatch) {
+      this.dispatch(updateGateSlots({
+        gateSlots: JSON.parse(JSON.stringify(this.gateSlots)),
+        parameters: { 
+          uHolder: { ...this.uHolder }, 
+          rHolder: { ...this.rHolder } 
+        },
+        updateText: false, // NEVER auto-update text from Gates class
+        source: "visual"
+      }));
+    }
+  }
+
+  // Convert current state to simple QuICScript for text input
+  toSimpleQuicscript() {
+    return this.gateSlots.map((row) => {
+      return row.map((gate) => gate || "I").join("");
+    }).join(",");
+  }
+
+  // addQubit and deleteQubit need emitChange calls because they are not connected to UI state
+  addQubit() {
+    this.gateSlots.push(new Array(this.columns).fill(""));
+    this.qubits++;
+    this.emitChange();
+  }
+
   deleteQubit(qubit) {
     if (this.qubits == 1) {
       this.gateSlots[0] = new Array(this.columns).fill("");
@@ -96,10 +129,19 @@ export class Gates {
     this.emitChange();
   }
 
-  addQubit() {
-    this.gateSlots.push(new Array(this.columns).fill(""));
-    this.qubits++;
-    this.emitChange();
+  // On the other hand, addMultipleQubits and deleteMultipleQubits don't need to emit changes,
+  // as they are triggered in updateWithQuicscript method which is typically called from
+  // button handlers that trigger state updates.
+  addMultipleQubits(qubits) {
+    for (let i = 0; i < qubits; i++) {
+      this.gateSlots.push(new Array(this.columns).fill(""));
+      this.qubits++;
+    }
+  }
+
+  deleteMultipleQubits(qubits) {
+    this.gateSlots.splice(0, qubits);
+    this.qubits = this.qubits - qubits;
   }
 
   /**
@@ -119,17 +161,25 @@ export class Gates {
    * Add one column to the left
    */
   addColumn() {
-    this.addMultipleColumn(1);
+    this.addMultipleColumns(1);
   }
 
   /**
    * Add Multiple Columns
    * @param {number} n
    */
-  addMultipleColumn(n) {
+  addMultipleColumns(n) {
     this.gateSlots.forEach((a) => a.push(...new Array(n).fill("")));
-    this.columns++;
-    this.emitChange();
+    this.columns = this.columns + n;
+  }
+
+  /**
+   * Remove Multiple Columns
+   * @param {number} n
+   */
+  removeMultipleColumns(n) {
+    this.gateSlots.map((qubitRow) => qubitRow.splice(-n));
+    this.columns = this.columns - n;
   }
 
   /**
@@ -159,20 +209,12 @@ export class Gates {
     this.draggingGate = gate;
   }
 
-  observe(o) {
-    this.observers.push(o);
-    this.emitChange();
-    return () => {
-      this.observers = this.observers.filter((t) => t !== o);
-    };
-  }
-
   moveGate(toQubit, toColumn) {
-    // console.log({ ...this.draggingGate, toQubit, toColumn });
     const { qubit, column, name } = this.draggingGate;
     if (this.isSpecialMethod())
       return this.handleSpecialMethod(name, toQubit, toColumn);
     if (toQubit == qubit && toColumn == column) return;
+
     this.gateSlots[toQubit][toColumn] = name;
     if (qubit != null && column != null) {
       this.gateSlots[qubit][column] = "";
@@ -183,7 +225,12 @@ export class Gates {
       this.moveUGateValue(column, toColumn);
     }
 
-    this.emitChange();
+    /** If this.draggingGate is Rx, Ry, or Rz gate, move state */
+    if (rGates.includes(name) && toColumn != column) {
+      this.moveRGateValue(column, toColumn);
+    }
+
+    this.emitChange(); // Update text after visual change
   }
 
   /**
@@ -201,7 +248,8 @@ export class Gates {
     if (!!this.gateSlots[qubit]) {
       this.gateSlots[qubit][column] = "";
       if (name == "U" && !!column) this.deleteUGate(column);
-      this.emitChange();
+      if (rGates.includes(name) && !!column) this.deleteRGate(column, name);
+      this.emitChange(); // Update text after deletion
     }
   }
 
@@ -212,45 +260,136 @@ export class Gates {
     return true;
   }
 
-  emitChange() {
-    const gateSlots = this.gateSlots;
-    this.observers.forEach(
-      (o) => o && o(JSON.parse(JSON.stringify(gateSlots)))
-    );
-  }
+  updateWithQuicscript(quicscript, preserveExistingParams = true) {
+    // CRITICAL: Prevent redundant processing
+    if (this._lastQuicscript === quicscript) {
+      return;
+    }
+    this._lastQuicscript = quicscript;
 
-  /**
-   * For external callback_render
-   * @param {string} quicscript
-   */
-  dynamicUpdateWithQuicscript(quicscript) {
-    // Check depth of quicscript
-    const columns = quicscript.split(",").length;
-
-    // Compare with current depth
-    if (columns > this.columns) this.addMultipleColumn(columns - this.columns);
-
-    this.updateWithQuicscript(quicscript);
-  }
-
-  updateWithQuicscript(quicscript) {
     if (quicscript != "" && (!quicscript || quicscript.length == 0)) return; // Empty or Null quic
 
+    // Store existing parameters before processing
+    const existingUHolder = preserveExistingParams ? { ...this.uHolder } : {};
+    const existingRHolder = preserveExistingParams ? { ...this.rHolder } : {};
+
+    // Retrieve the QuIC array
     const quicArr = quicDelimiterRemoval(quicscript).split(",");
 
-    this.gateSlots = this.gateSlots.map((arr, i) =>
-      arr.map((_, y) => {
-        if (quicArr.length > y && quicArr[y].length > i) {
-          return quicArr[y][i] == "I" ? "" : quicArr[y][i];
+    // Get number of columns
+    const numberOfQuicCols = quicArr.length;
+    const defaultNumberOfCols = this.defaultConfig.columns || 9;
+    const currentNumberOfCols = this.columns;
+
+    // Get target number of columns
+    const targetNumberOfCols = Math.max(numberOfQuicCols, defaultNumberOfCols);
+
+    // Add more columns if target number of columns are more than current number of columns
+    if (targetNumberOfCols > currentNumberOfCols) {
+      const columnsToAdd = targetNumberOfCols - currentNumberOfCols;
+      this.addMultipleColumns(columnsToAdd);
+    }
+
+    // Remove excess columns if current number of columns are more than the target number of columns
+    else if (targetNumberOfCols < currentNumberOfCols) {
+      const columnsToRemove = currentNumberOfCols - targetNumberOfCols;
+      this.removeMultipleColumns(columnsToRemove);
+    }
+
+    // Get number of rows
+    const noOfRows = quicArr[0].length;
+    const defaultNumberOfRows = this.defaultConfig.qubits || 9;
+    const currentNumberOfRows = this.qubits;
+
+    // Get target number of rows
+    const targetNumberOfRows = Math.max(noOfRows, defaultNumberOfRows);
+
+    // Add more rows if target number of rows are more than the current number of rows
+    if (targetNumberOfRows > currentNumberOfRows) {
+      const rowsToAdd = targetNumberOfRows - currentNumberOfRows;
+      this.addMultipleQubits(rowsToAdd);
+    }
+
+    // Remove excess rows if current number of rows are more than the target number of rows
+    else if (targetNumberOfRows < currentNumberOfRows) {
+      const rowsToRemove = currentNumberOfRows - targetNumberOfRows;
+      this.deleteMultipleQubits(rowsToRemove);
+    }
+
+    // Update gate slots with parameter preservation
+    this.gateSlots = this.gateSlots.map((row, rowIndex) => {
+      return row.map((_, columnIndex) => {
+        if (quicArr.length > columnIndex && noOfRows > rowIndex) {
+          const columnGates = parseSegmentIntoGates(quicArr[columnIndex]);
+
+          if (columnGates[rowIndex]?.[0] === "U") {
+            const uGatePattern = /^U\{([\d.-]+)\|([\d.-]+)\|([\d.-]+)\}$/;
+            const match = columnGates[rowIndex].match(uGatePattern);
+
+            if (match) {
+              // Input has parameters - use them
+              const [_, theta, phi, lambda] = match;
+              this.setAllUGateValue({ theta, phi, lambda }, columnIndex);
+            } else if (existingUHolder[columnIndex]) {
+              // Input has no parameters but we have existing ones - preserve them
+              this.uHolder[columnIndex] = existingUHolder[columnIndex];
+            }
+            return "U";
+          } else if (rGates.includes(columnGates[rowIndex]?.[0])) {
+            const rGatePattern = /^([xyz])\{([\d.-]+)\}$/;
+            const match = columnGates[rowIndex].match(rGatePattern);
+
+            if (match) {
+              // Input has parameters - use them
+              const [_, rGateType, alpha] = match;
+              this.setRGateValue(columnIndex, rGateType, parseFloat(alpha));
+            } else if (
+              existingRHolder[columnIndex]?.[columnGates[rowIndex]?.[0]]
+            ) {
+              // Input has no parameters but we have existing ones - preserve them
+              if (!this.rHolder[columnIndex]) this.rHolder[columnIndex] = {};
+              this.rHolder[columnIndex][columnGates[rowIndex]?.[0]] =
+                existingRHolder[columnIndex][columnGates[rowIndex]?.[0]];
+            }
+            return columnGates[rowIndex]?.[0];
+          } else if (columnGates[rowIndex] === "I") {
+            return "";
+          } else {
+            return columnGates[rowIndex];
+          }
         }
         return "";
-      })
-    );
+      });
+    });
+
+    // Only emit visual update when processing text input
     this.emitChange();
   }
 
   ifColumnHasGate(column, gate) {
     return this.gateSlots.some((gates) => gates[column] == gate);
+  }
+
+  deleteRGate(column, type) {
+    if (!this.ifColumnHasGate(column, type)) this.rHolder[column] = null;
+  }
+
+  moveRGateValue(column, toColumn, type) {
+    if (column != null && toColumn != null) {
+      if (!this.rHolder[toColumn])
+        this.rHolder[toColumn] = { ...this.rHolder[column] };
+      if (!this.ifColumnHasGate(column, type)) this.rHolder[column] = null;
+    }
+  }
+
+  setRGateValue(column, type, value) {
+    if (!this.rHolder[column]) this.rHolder[column] = {};
+    this.rHolder[column][type] = value;
+  }
+
+  getRGateValue(column, type) {
+    if (!this.rHolder[column]) this.rHolder[column] = {};
+    return this.rHolder[column][type] ? this.rHolder[column][type] : 0;
   }
 
   deleteUGate(column) {
@@ -278,23 +417,23 @@ export class Gates {
   getUGateColumnValue(column) {
     // const angles = ["ϴ", "φ", "λ"];
     if (this.uHolder[column]) {
-      const theta = this.uHolder[column]["ϴ"];
-      const phi = this.uHolder[column]["φ"];
-      const lamda = this.uHolder[column]["λ"];
+      const theta = parseFloat(this.uHolder[column]["ϴ"]);
+      const phi = parseFloat(this.uHolder[column]["φ"]);
+      const lambda = parseFloat(this.uHolder[column]["λ"]);
       return {
         theta: theta ? theta : 0,
         phi: phi ? phi : 0,
-        lamda: lamda ? lamda : 0,
+        lambda: lambda ? lambda : 0,
       };
     }
-    return { theta: 0, phi: 0, lamda: 0 };
+    return { theta: 0, phi: 0, lambda: 0 };
   }
 
-  setAllUGateValue({ theta, phi, lamda }, column) {
+  setAllUGateValue({ theta, phi, lambda }, column) {
     this.uHolder[column] = {};
     this.uHolder[column]["ϴ"] = theta;
     this.uHolder[column]["φ"] = phi;
-    this.uHolder[column]["λ"] = lamda;
+    this.uHolder[column]["λ"] = lambda;
   }
 
   handleSpecialMethod(name, toQubit, toColumn) {

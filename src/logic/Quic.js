@@ -1,14 +1,16 @@
 import { maxQubits } from "./Gates";
-import { allowedGates, quicDelimiterRemoval, stringToQubits } from "./Helper";
+import { quicDelimiterRemoval, stringToQubits } from "./Helper";
 
 export class Quic {
   valid = false;
   qubits = 0;
   columns = 0;
   quic = "";
-  constructor(quic = "") {
-    if (Quic.quicValidator(quic)) {
+  allowedGates = null;
+  constructor(quic = "", allowedGates) {
+    if (Quic.quicValidator(quic, allowedGates)) {
       this.quic = quic;
+      this.allowedGates = allowedGates;
       this.valid = true;
       this.qubits = stringToQubits(quic);
       if (this.qubits > maxQubits) {
@@ -34,7 +36,7 @@ export class Quic {
    * @param {string} quic
    * @returns boolean
    */
-  static quicValidator(quic) {
+  static quicValidator(quic, allowedGates) {
     if (!quic || quic.length == 0) return false;
 
     quic = quicDelimiterRemoval(quic);
@@ -43,7 +45,7 @@ export class Quic {
 
     if (quic.split("").some((char) => !allowedCharacters.includes(char))) {
       // Contains invalid characters
-      console.log("Quic Validator: quic contains invalid characters");
+      console.warn("Quic Validator: quic contains invalid characters");
       // TODO: Alert?
       return false;
     }

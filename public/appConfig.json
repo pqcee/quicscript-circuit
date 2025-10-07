@@ -1,0 +1,65 @@
+{
+  "availableGates": {
+    "basic": ["H", "X", "Y", "Z"],
+    "controlled": ["C", "N"],
+    "phase": ["P", "T", "s"],
+    "measurement": ["m"],
+    "utility": ["I", "d"],
+    "rotation": ["x", "y", "z", "U"]
+  },
+
+  "presetCircuits": [
+    { "id": "custom", "name": "Custom", "circuit": "" },
+    {
+      "id": "quantumfourier",
+      "name": "Quantum Fourier Transform",
+      "circuit": "IIH,ICP,CIT,IHI,CPI,HII."
+    },
+    {
+      "id": "quantumtele",
+      "name": "Quantum Teleportation",
+      "circuit": "IHI,ICN,CNI,HII,mmI,ICN,CIZ."
+    },
+    { "id": "bell", "name": "Bell State", "circuit": "HI,CN." },
+    { "id": "ghz3", "name": "GHZ 3 Qubit", "circuit": "HII,CNI,ICN." },
+    {
+      "id": "simon",
+      "name": "Simon s=11",
+      "circuit": "HHII,CINI,CIIN,ICNI,ICIN,IImm,HHII,mmII."
+    },
+    {
+      "id": "grover2",
+      "name": "Grover 2 Qubit",
+      "circuit": "HHI,IIX,IIH,III,CCN,III,IIH,IIX,HHI,XXI,IHI,CNI,IHI,XXI,HHI."
+    },
+    {
+      "id": "grover3",
+      "name": "Grover 3 Qubit",
+      "circuit": "HHHI,IIIX,IIIH,IIII,CCCN,IIII,IIIH,IIIX,HHHI,XXXI,IIHI,CCNI,IIHI,XXXI,HHHI,IIIX,IIIH,IIII,CCCN,IIII,IIIH,IIIX,HHHI,XXXI,IIHI,CCNI,IIHI,XXXI,HHHI."
+    },
+    {
+      "id": "shor21",
+      "name": "Shor (factor 21)",
+      "circuit": "HHHII,IICIN,ICIIN,IIINC,ICICN,IIINC,IIIIX,CIINC,IIIIX,IIINC,CIICN,IIINC,IIHII,ICPII,CITII,IHIII,CPIII,HIIII."
+    },
+    {
+      "id": "shor15",
+      "name": "Shor (factor 15)",
+      "circuit": "HHHIIII,CIIIIIN,ICIININ,IIIIICN,IICIICN,IIIIICN,IIICNII,IICCNII,IIIIICN,IIImmmm,HIIIIII,CPIIIII,IHIIIII,CITIIII,ICPIIII,IIHIIII,IIIdddd."
+    }
+  ],
+
+  "defaultCircuit": {
+    "qubits": 9,
+    "columns": 20,
+    "initialCircuit": null
+  },
+
+  "display": {
+    "showQiboTranslation": true,
+    "showCircuitInput": true,
+    "useCustomGates": true,
+    "gateBackgroundColor": "#98cfec",
+    "resultDelimiter": "decimal"
+  }
+}

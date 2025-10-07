@@ -91,20 +91,9 @@ npm run build
 ./dist
 ├──index.html
 └──assets/
-    ├──QuICScript.js
-    ├──QuICScript.wasm
     ├──index.js
     └──index.css
 ```
-
-2. Run Preview Server (optional)
-
-```bash
-npm run preview
-```
-
-> [!Note]
-> The preview server will run on `http://localhost:5173` by default. This is useful to view the production build of the project in your browser.
 
 ## License
 

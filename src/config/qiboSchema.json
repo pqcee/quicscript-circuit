@@ -1,0 +1,234 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "Qibo Quantum Circuit Schema",
+  "description": "Schema for serializing/deserializing Qibo quantum circuits",
+  "type": "object",
+  "required": ["queue", "nqubits", "density_matrix", "qibo_version"],
+  "properties": {
+    "queue": {
+      "type": "array",
+      "description": "Ordered list of gates in the circuit",
+      "items": {
+        "$ref": "#/definitions/gate"
+      }
+    },
+    "nqubits": {
+      "type": "integer",
+      "minimum": 1,
+      "description": "Number of qubits in the circuit"
+    },
+    "density_matrix": {
+      "type": "boolean",
+      "description": "Whether circuit uses density matrix simulation"
+    },
+    "wire_names": {
+      "oneOf": [
+        { "type": "null" },
+        {
+          "type": "array",
+          "items": { "type": "string" },
+          "description": "Custom names for qubit wires"
+        }
+      ]
+    },
+    "qibo_version": {
+      "type": "string",
+      "description": "Version of Qibo used to create this circuit"
+    }
+  },
+  "definitions": {
+    "gate": {
+      "type": "object",
+      "required": [
+        "_class",
+        "name",
+        "init_args",
+        "init_kwargs",
+        "_target_qubits",
+        "_control_qubits"
+      ],
+      "properties": {
+        "_class": {
+          "type": "string",
+          "description": "Gate class name (H, X, CNOT, RY, etc.)",
+          "enum": [
+            "H",
+            "X",
+            "Y",
+            "Z",
+            "S",
+            "T",
+            "SX",
+            "SXDG",
+            "SDG",
+            "TDG",
+            "I",
+            "RX",
+            "RY",
+            "RZ",
+            "U1",
+            "U2",
+            "U3",
+            "PRX",
+            "GPI",
+            "GPI2",
+            "CNOT",
+            "CY",
+            "CZ",
+            "CSX",
+            "CSXDG",
+            "CRX",
+            "CRY",
+            "CRZ",
+            "CU1",
+            "CU2",
+            "CU3",
+            "SWAP",
+            "iSWAP",
+            "SiSWAP",
+            "SiSWAPDG",
+            "FSWAP",
+            "fSim",
+            "SYC",
+            "GeneralizedfSim",
+            "RXX",
+            "RYY",
+            "RZZ",
+            "RZX",
+            "RXXYY",
+            "MS",
+            "GIVENS",
+            "RBS",
+            "ECR",
+            "TOFFOLI",
+            "CCZ",
+            "DEUTSCH",
+            "GeneralizedRBS",
+            "Unitary",
+            "Align",
+            "M"
+          ]
+        },
+        "name": {
+          "type": "string",
+          "description": "QASM-style gate identifier string",
+          "enum": [
+            "h",
+            "x",
+            "y",
+            "z",
+            "s",
+            "t",
+            "sx",
+            "sxdg",
+            "sdg",
+            "tdg",
+            "id",
+            "rx",
+            "ry",
+            "rz",
+            "u1",
+            "u2",
+            "u3",
+            "prx",
+            "gpi",
+            "gpi2",
+            "cx",
+            "cy",
+            "cz",
+            "csx",
+            "csxdg",
+            "crx",
+            "cry",
+            "crz",
+            "cu1",
+            "cu2",
+            "cu3",
+            "swap",
+            "iswap",
+            "siswap",
+            "siswap_dagger",
+            "fswap",
+            "fsim",
+            "syc",
+            "gfsim",
+            "rxx",
+            "ryy",
+            "rzz",
+            "rzx",
+            "rxxyy",
+            "ms",
+            "givens",
+            "rbs",
+            "ecr",
+            "ccx",
+            "ccz",
+            "deutsch",
+            "grbs",
+            "unitary",
+            "align",
+            "measure"
+          ]
+        },
+        "init_args": {
+          "type": "array",
+          "description": "Positional arguments for gate construction",
+          "items": {
+            "oneOf": [
+              { "type": "integer" },
+              { "type": "number" },
+              { "type": "array" }
+            ]
+          }
+        },
+        "init_kwargs": {
+          "type": "object",
+          "description": "Keyword arguments for gate construction",
+          "properties": {
+            "theta": { "type": "number", "description": "Rotation angle" },
+            "phi": { "type": "number", "description": "Phase angle" },
+            "lam": { "type": "number", "description": "Lambda angle" },
+            "phi0": {
+              "type": "number",
+              "description": "First phase parameter"
+            },
+            "phi1": {
+              "type": "number",
+              "description": "Second phase parameter"
+            },
+            "trainable": {
+              "type": "boolean",
+              "description": "Whether parameters are trainable"
+            },
+            "register_name": {
+              "type": "string",
+              "description": "Measurement register name"
+            },
+            "collapse": {
+              "type": "boolean",
+              "description": "Whether measurement collapses state"
+            },
+            "basis": { "type": "array", "description": "Measurement basis" },
+            "p0": {
+              "type": "number",
+              "description": "Probability parameter 0"
+            },
+            "p1": { "type": "number", "description": "Probability parameter 1" }
+          },
+          "additionalProperties": false
+        },
+        "_target_qubits": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 },
+          "description": "Qubits that the gate acts upon"
+        },
+        "_control_qubits": {
+          "type": "array",
+          "items": { "type": "integer", "minimum": 0 },
+          "description": "Control qubits for controlled gates"
+        }
+      },
+      "additionalProperties": false
+    }
+  }
+}

@@ -1,6 +1,6 @@
 {
   "editor.formatOnSave": true,
-  "files.autoSave": "afterDelay",
+  // "files.autoSave": "afterDelay",
   "git.enableSmartCommit": true,
   "git.autofetch": true,
   "[javascriptreact]": {

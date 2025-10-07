@@ -1,6 +1,11 @@
-import { Config } from "./Config";
 import { Gates } from "./Gates";
-import { delimiter, parseComplexNumber, stringToQubits } from "./Helper";
+import {
+  delimiter,
+  parseComplexNumber,
+  rGates,
+  stringToQubits,
+  allowedType,
+} from "./Helper";
 
 /**
  * QuICScriptManager manages QuICScript import and engine
@@ -52,10 +57,23 @@ export class QuICScriptManager {
   quicEquationResults = [];
 
   /**
+   * QuicSCript Equation Result Delimiter
+   * @type {string}
+   */
+  resultDelimiter = "";
+
+  /**
+   * Constant for parametric gates
+   * @type {string[]}
+   */
+  PARAMETRIC_GATES = ["U", "x", "y", "z"];
+
+  /**
    * Create a QuICScriptManager
    */
-  constructor() {
+  constructor(resultDelimiter = null) {
     this.loadQuICScript();
+    this.resultDelimiter = resultDelimiter;
   }
 
   /**
@@ -114,6 +132,80 @@ export class QuICScriptManager {
   }
 
   /**
+   * Process quicString column by column, handling parametric gates
+   * @param {string} quicString - The QuIC string to process
+   * @param {Gates} gates - Gates object for parameter values
+   * @param {string} runDelimiter - Delimiter to use for each column
+   * @returns {Object} { finalResult: string, columnResults: QuICScriptState[] }
+   */
+  processQuicColumns(quicString, gates, runDelimiter) {
+    const columnResults = [];
+    let finalResult = "";
+
+    // Remove trailing delimiter if present for splitting
+    const cleanString = quicString.endsWith(runDelimiter)
+      ? quicString.slice(0, -1)
+      : quicString;
+
+    const columns = cleanString.split(",");
+
+    // Check if we need parametric gate processing
+    const hasParametricGates = this.PARAMETRIC_GATES.some((gate) =>
+      quicString.includes(gate)
+    );
+
+    if (hasParametricGates) {
+      // Process each column with parametric gate handling
+      columns.forEach((columnString, column) => {
+        const hasUGate = columnString.includes("U");
+        const hasRGate = rGates.some((gate) => columnString.includes(gate));
+
+        // Ensure column has delimiter
+        if (!columnString.includes(runDelimiter)) {
+          columnString = columnString + runDelimiter;
+        }
+
+        let result;
+        if (hasUGate) {
+          result = this.runQuICScript_cont(
+            columnString,
+            gates.getUGateColumnValue(column)
+          );
+        } else if (hasRGate) {
+          const firstRGateType = columnString
+            .split("")
+            .find((gate) => rGates.includes(gate));
+          result = this.runQuICScript_cont(
+            columnString,
+            gates.getRGateValue(column, firstRGateType)
+          );
+        } else {
+          result = this.runQuICScript_cont(columnString);
+        }
+
+        columnResults.push(new QuICScriptState(columnString, result));
+        if (column === columns.length - 1) {
+          finalResult = result;
+        }
+      });
+    } else {
+      // Simple processing without parametric gates
+      columns.forEach((columnStr) => {
+        const result = this.runQuICScript_cont(columnStr + runDelimiter);
+        columnResults.push(
+          new QuICScriptState(columnStr + runDelimiter, result)
+        );
+      });
+
+      // Reset and run full string for final result
+      this.engineReset();
+      finalResult = this.runQuICScript_cont(cleanString + runDelimiter);
+    }
+
+    return { finalResult, columnResults };
+  }
+
+  /**
    * Calls the module
    * @param {Gates} gates
    * @param {string} quicString Quic string
@@ -124,86 +216,135 @@ export class QuICScriptManager {
       return false;
     }
 
-    /** Adds default delimiter if delimiter isn't in quicString */
+    // Add default delimiter if needed
     if (!delimiter.includes(quicString[quicString.length - 1])) {
-      const defaultDelimiter = Config.getConfig().defaultResultDelimiter;
+      const defaultDelimiterType = this.resultDelimiter;
+      const defaultDelimiter = allowedType[defaultDelimiterType];
       quicString = quicString + defaultDelimiter;
     }
 
     const runDelimiter = quicString[quicString.length - 1];
 
-    if (this.started) {
-      console.log({
-        message: "QuICScript run 'QuICScript_cont",
-        Qubits: this.qubits,
-        "Quic String": quicString,
+    if (!this.started) {
+      console.error("QuICScript not started");
+      return;
+    }
+
+    console.log({
+      message: "QuICScript run 'QuICScript_cont",
+      Qubits: this.qubits,
+      "Quic String": quicString,
+    });
+
+    // Process columns and get results
+    const { finalResult, columnResults } = this.processQuicColumns(
+      quicString,
+      gates,
+      runDelimiter
+    );
+
+    // Store column results
+    this.runQuicResults = columnResults;
+
+    // Format final result to remove ,0.00% lines
+    let result = finalResult
+      .split("\n")
+      .map((str) => (str.includes(",0.00%") ? null : str))
+      .filter((a) => a)
+      .join("\n");
+
+    console.log("QuICScript result: " + result);
+
+    if (result.includes("Error")) {
+      console.error({
+        message: "Error occured",
+        called: {
+          qubits: this.qubits,
+          quic: quicString,
+        },
+        previousState: this.quicResults,
+      });
+    }
+
+    this.quicResults.push(new QuICScriptState(quicString, result));
+
+    // Generate equation results using the same processing logic
+    this.generateEquationResults(quicString, gates, runDelimiter);
+
+    return result;
+  }
+
+  /**
+   * Generate equation results by processing with '_' delimiter
+   * @param {string} quicString Quic string (with current delimiter)
+   * @param {Gates} gates Gates object
+   */
+  generateEquationResults(quicString, gates) {
+    // Replace current delimiter with '_' for equation format
+    const equationString = quicString.slice(0, -1) + "_";
+
+    this.engineReset();
+
+    // Reuse the same column processing logic
+    const { finalResult } = this.processQuicColumns(equationString, gates, "_");
+
+    if (finalResult == null) {
+      this.quicEquationResults = null;
+      return;
+    }
+
+    const holderArray = [];
+    let error = false;
+
+    finalResult
+      .split("\n")
+      .slice(0, -1)
+      .forEach((e) => {
+        const [state, result] = e.slice(0, -1).split(",");
+
+        if (result == 0) return;
+
+        const complexNumber = parseComplexNumber(result);
+
+        if (complexNumber == null) {
+          console.error("Unable to parse result: " + result);
+          console.error("Disable update Equation Results for this run");
+          error = true;
+          return;
+        }
+
+        const { real, imaginary } = complexNumber;
+        holderArray.push(new StateResult(state, real, imaginary));
       });
 
-      let result = "";
-
-      /** If U exists in quicString */
-      if (!import.meta.env.COMMUNITY && quicString.includes("U")) {
-        const arr = quicString.split(",");
-        arr.map((columnString, column) => {
-          let r = this.runQuICScript_cont(
-            columnString + runDelimiter,
-            columnString.includes("U")
-              ? gates.getUGateColumnValue(column)
-              : null
-          );
-          //   console.log(r);
-          if (column == arr.length - 1) result = r;
-          this.runQuicResults.push(r);
-        });
-      } else {
-        const splitDebugRun = true; // TODO: Temporary
-        if (splitDebugRun) {
-          this.runQuicResults = quicString
-            .slice(0, -1)
-            .split(",")
-            .map((str) => this.runQuICScript_cont(str + "_"));
-          // Reset the Engine
-          this.engineReset();
-        }
-        result = this.runQuICScript_cont(quicString);
-      }
-
-      /** Format String to remove ,0.00% */
-      result = result
-        .split("\n")
-        .map((str) => (str.includes(",0.00%") ? null : str))
-        .filter((a) => a)
-        .join("\n");
-
-      console.log("QuICScript result: " + result);
-      if (result.includes("Error")) {
-        //TODO: Do Something? Stop the engine?
-        console.error({
-          message: "Error occured",
-          called: {
-            qubits: this.qubits,
-            quic: quicString,
-          },
-          previousState: this.quicResults,
-        });
-      }
-      this.quicResults.push(new QuICScriptState(quicString, result));
-
-      // Getting Equation Results
-      this.generateEquationResults(quicString.slice(0, -1) + "_");
-
-      return result;
-    } else {
-      console.error("QuICScript not started");
-    }
+    this.quicEquationResults = error ? null : holderArray;
+    this.engineReset();
   }
 
   runQuICScript_cont(quicString, input = null) {
     let parameter = [this.qubits, quicString, 1, 0, 0, 0, 0, 0, 1, 0];
+    console.log(input);
     if (input != null) {
-      const { theta, phi, lamda } = input;
-      parameter = [this.qubits, quicString, theta, phi, lamda, 0, 0, 0, 0, 0];
+      if (typeof input === "object") {
+        const { theta, phi, lambda } = input;
+        parameter = [
+          this.qubits,
+          quicString,
+          theta,
+          phi,
+          lambda,
+          0,
+          0,
+          0,
+          0,
+          0,
+        ];
+      } else if (typeof input === "number") {
+        const alpha = input;
+        parameter = [this.qubits, quicString, alpha, 0, 0, 0, 0, 0, 0, 0];
+      }
     }
+    console.log(parameter);
     return Module.ccall(
       "QuICScript_cont",
       "string",
@@ -259,50 +400,6 @@ export class QuICScriptManager {
       } else if (char === ",") column++;
     }
     return { theta: 0, phi: 0, lamda: 0 };
-  }
-
-  /**
-   *
-   * @param {string} quicString Quic string
-   */
-  generateEquationResults(quicString) {
-    this.engineReset();
-    const results = this.runQuICScript_cont(quicString);
-    // store results into quicEquationResults = [];
-    // Example quicString = "X,H,T_" = '0,0.7071;\n1,-0.5-0.5i;\n'
-    // quicEquationResults => |phi> = 0.7071|0> -(0.5+0.5i)|1>
-    let error = false;
-    if (results == null) return (this.quicEquationResults = null);
-
-    const holderArray = [];
-
-    results
-      .split("\n")
-      .slice(0, -1)
-      .forEach((e) => {
-        const [state, result] = e.slice(0, -1).split(",");
-        // result = "-0.5-0.5i"
-        // split result into real and imaginary
-        if (result == 0) return;
-
-        const complexNumber = parseComplexNumber(result);
-
-        // console.log("Result", { result, complexNumber });
-
-        if (complexNumber == null) {
-          console.error("Unable to parse result: " + result);
-          console.error("Disable update Equation Results for this run");
-          error = true;
-          return null;
-        }
-        const { real, imaginary } = complexNumber;
-        console.log({ state, real, imaginary });
-        holderArray.push(new StateResult(state, real, imaginary));
-      });
-
-    this.quicEquationResults = holderArray;
-    if (error) this.quicEquationResults = null;
-    this.engineReset();
   }
 
   /**
