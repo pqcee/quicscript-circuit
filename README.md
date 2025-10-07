@@ -60,12 +60,6 @@ cd quicscript-circuit
 npm install
 ```
 
-3. **(Recommended)** Alternatively, you can use [![VS Code Container](https://img.shields.io/static/v1?label=VS+Code&message=Dev%20Containers&logo=visualstudiocode&color=007ACC&logoColor=007ACC&labelColor=2C2C32)](https://open.vscode.dev/microsoft/vscode)
-
-   - Installation guide: [VS Code Dev Containers](https://code.visualstudio.com/docs/devcontainers/containers)
-   - Reopening the repo in Dev Container: [Open in Dev Container](https://vscode.dev/github/pqcee/quicscript-dev-react?devcontainer_path=.devcontainer/devcontainer.json)
-   - Use the **Dev Containers: Reopen in Container** command from the Command Palette (`F1`, `Ctrl+Shift+P`).
-
 ## Usage
 
 ### Development
@@ -90,6 +84,7 @@ npm run build
 ```bash
 ./dist
 ├──index.html
+├──appConfig.json
 └──assets/
     ├──index.js
     └──index.css
