@@ -1,7 +1,7 @@
 {
   "name": "pqcee-quiscript-builder",
   "private": true,
-  "version": "2.3.0",
+  "version": "2.3.5",
   "type": "module",
   "license": "CC",
   "homepage": "https://pqcee.github.io/QuICScript-manual/getting_started.html",

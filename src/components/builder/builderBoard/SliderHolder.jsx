@@ -32,7 +32,7 @@ export function SliderHolder({ columns, runQuicResults }) {
   const valueLabelFormat = (value) => {
     if (value > runQuicResults.length) return `Depth ${value}\nEmpty`;
     if (value == 0) return `All |0>`;
-    return runQuicResults[value - 1];
+    return runQuicResults[value - 1].result;
   };
 
   return (

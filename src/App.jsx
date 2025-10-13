@@ -330,12 +330,16 @@ export default function App({ config }) {
           </select>
         </CircuitSelector>
         <SelectionRight>
-          <ButtonHolder onClick={handleSendToQibo}>Send to Qibo</ButtonHolder>
-          <FileUploadDownload
-            onFileRead={handleFileImport}
-            gates={gates}
-            config={config}
-          />
+          {config.display.showQiboTranslation && (
+            <ButtonHolder onClick={handleSendToQibo}>Send to Qibo</ButtonHolder>
+          )}
+          {config.display.showImportExport && (
+            <FileUploadDownload
+              onFileRead={handleFileImport}
+              gates={gates}
+              config={config}
+            />
+          )}
         </SelectionRight>
       </SelectionDiv>
 

@@ -58,6 +58,7 @@
   "display": {
     "showQiboTranslation": true,
     "showCircuitInput": true,
+    "showImportExport": true,
     "useCustomGates": true,
     "gateBackgroundColor": "#98cfec",
     "resultDelimiter": "decimal"

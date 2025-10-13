@@ -19,7 +19,9 @@ export { COPY, MOVE };
 export const maxQubits = 20;
 
 export class Gates {
-  gateSlots = [];
+  // When these properties are initialized outside of constructors,
+  // they are read-only properties. If there is any variable you wish
+  // to not be read-only, please initialize them in the constructor.
   observers = [];
   draggingGate = new GateModel(null, null, null);
   qubits = 1;
@@ -30,7 +32,13 @@ export class Gates {
   dispatch = null; // Redux dispatch function
   defaultConfig = null;
 
-  constructor(qubits, columns, quic = "", dynamicConfig = null, dispatch = null) {
+  constructor(
+    qubits,
+    columns,
+    quic = "",
+    dynamicConfig = null,
+    dispatch = null
+  ) {
     // Store redux dispatch
     this.dispatch = dispatch;
 
@@ -93,23 +101,34 @@ export class Gates {
   // Dispatch to Redux instead of notifying observers
   emitChange() {
     if (this.dispatch) {
-      this.dispatch(updateGateSlots({
-        gateSlots: JSON.parse(JSON.stringify(this.gateSlots)),
-        parameters: { 
-          uHolder: { ...this.uHolder }, 
-          rHolder: { ...this.rHolder } 
-        },
-        updateText: false, // NEVER auto-update text from Gates class
-        source: "visual"
-      }));
+      this.dispatch(
+        updateGateSlots({
+          gateSlots: JSON.parse(JSON.stringify(this.gateSlots)),
+          parameters: {
+            // Doing a deep clone is to ensure that Redux receives an independent copy of the object.
+            // If you pass a shallow spread (i.e. { ...this.rHolder }), the reference in Redux
+            // will be shared by the original object in this class. Hence, when mutations
+            // are made to this object in this class, they will fail, as any object passed to
+            // Redux must pass immutability check which will freeze the reference.
+            // This will result in the following error:
+            // can't define property "x": Object is not extensible
+            uHolder: this.deepClone(this.uHolder),
+            rHolder: this.deepClone(this.rHolder),
+          },
+          updateText: false, // NEVER auto-update text from Gates class
+          source: "visual",
+        })
+      );
     }
   }
 
   // Convert current state to simple QuICScript for text input
   toSimpleQuicscript() {
-    return this.gateSlots.map((row) => {
-      return row.map((gate) => gate || "I").join("");
-    }).join(",");
+    return this.gateSlots
+      .map((row) => {
+        return row.map((gate) => gate || "I").join("");
+      })
+      .join(",");
   }
 
   // addQubit and deleteQubit need emitChange calls because they are not connected to UI state
@@ -260,6 +279,16 @@ export class Gates {
     return true;
   }
 
+  // Deep clone helper for nested objects
+  deepClone = (obj) => {
+    if (!obj) return {};
+    const cloned = {};
+    for (const key in obj) {
+      cloned[key] = { ...obj[key] };
+    }
+    return cloned;
+  };
+
   updateWithQuicscript(quicscript, preserveExistingParams = true) {
     // CRITICAL: Prevent redundant processing
     if (this._lastQuicscript === quicscript) {
@@ -347,7 +376,9 @@ export class Gates {
               existingRHolder[columnIndex]?.[columnGates[rowIndex]?.[0]]
             ) {
               // Input has no parameters but we have existing ones - preserve them
-              if (!this.rHolder[columnIndex]) this.rHolder[columnIndex] = {};
+              if (!this.rHolder[columnIndex]) {
+                this.rHolder[columnIndex] = {};
+              }
               this.rHolder[columnIndex][columnGates[rowIndex]?.[0]] =
                 existingRHolder[columnIndex][columnGates[rowIndex]?.[0]];
             }
